@@ -33,7 +33,9 @@ def predict(dict, prompt="", negative_prompt="", guidance_scale=7.5, steps=20, s
     init_image = dict["image"].convert("RGB").resize((1024, 1024))
     mask = dict["mask"].convert("RGB").resize((1024, 1024))
     
-    output.mask, gr.update(visible=True)
+    output = pipe(prompt = prompt, negative_prompt=negative_prompt, image=init_image, mask_image=mask, guidance_scale=guidance_scale, num_inference_steps=int(steps), strength=strength)
+    
+    return output.images[0], gr.update(visible=True)
 
 
 css = '''
@@ -120,6 +122,7 @@ with image_blocks as demo:
                     ["./imgs/Multible-sharing-room_ccexpress-2-1024x1024.jpeg"],
                 ],
                 fn=predict,
+                inputs=[image],
                 inputs=[image],
                 cache_examples=False,
     )
