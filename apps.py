@@ -65,13 +65,5 @@ image_input = gr.inputs.Image(label="Input Image")
 mask_input = gr.inputs.Image(label="Mask Image")
 image_output = gr.outputs.Image(label="Mask Output")
 
-interface = gr.Interface(
-    fn=predict,
-    inputs=[image_input, mask_input],
-    outputs=image_output,
-    title="Inpainting Demo",
-    server_port=7857,
-    css=css
-)
 
 interface.launch(debug=True, max_threads=True, share=True, inbrowser=True)
