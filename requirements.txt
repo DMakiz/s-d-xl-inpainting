@@ -9,3 +9,4 @@ matplotlib
 uuid
 opencv-python
 gradio==3.29.0
+ diffusion_predict
