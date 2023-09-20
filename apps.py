@@ -34,8 +34,9 @@ def predict(dict, prompt="", negative_prompt="", guidance_scale=7.5, steps=20, s
     init_image = dict["image"].convert("RGB").resize((1024, 1024))
     mask = dict["mask"].convert("RGB").resize((1024, 1024))
     
-    output = mask
+    
     mask = ImageOps.invert(mask)
+    output = mask
     return output, gr.update(visible=True)
 
 
