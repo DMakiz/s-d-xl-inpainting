@@ -11,8 +11,7 @@ def read_content(file_path: str) -> str:
 
 
 def generate_mask(image):
-    mask = image
-    return mask
+    return image
 
 
 css = '''
@@ -62,7 +61,7 @@ with image_blocks as demo:
                 invert_mask_checkbox = gr.Checkbox(label="Invert Mask", initial_value=False, elem_id="invert_mask_checkbox")
                 generate_button = gr.Button("Generate Mask", elem_id="generate_button")
         with gr.Column():
-            mask_out = gr.Image(label="Mask Output", elem_id="mask_output", height=400)
+            mask_out = gr.Image(label="Mask Output", elem_id="mask_output", height=1024)
     
     generate_button.click(generate_mask, inputs=[image], outputs=[mask_out])
 
