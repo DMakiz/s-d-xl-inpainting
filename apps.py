@@ -15,10 +15,11 @@ def read_content(file_path: str) -> str:
         content = f.read()
 
     return content
+
+
 def predict(dict, prompt="", negative_prompt="", guidance_scale=7.5, steps=20, strength=1.0, scheduler="EulerDiscreteScheduler"):
     if negative_prompt == "":
         negative_prompt = None
-    
     scheduler_class_name = scheduler.split("-")[0]
 
     add_kwargs = {}
@@ -40,23 +41,17 @@ def predict(dict, prompt="", negative_prompt="", guidance_scale=7.5, steps=20, s
     
     # Инверсия маски обратно перед возвратом
     mask = ImageOps.invert(mask)
-
-    # interpolate to original size
+    
     prediction = torch.nn.functional.interpolate(
-                        output.unsqueeze(1),
+                        output.images[0].unsqueeze(1),
                         size=init_image.size[::-1],
                         mode="bicubic",
                         align_corners=False,
                  ).squeeze()
-    output = prediction.cpu().numpy()
-    
-    invert = True  # Инверсия значений пикселей
-    if invert:
-        formatted = (output * 255 / np.max(output)).astype('uint8')
-        formatted = 255 - formatted  # инвертирование значений пикселей
-    else:
-        formatted = (output * 255 / np.max(output)).astype('uint8')
-    
+    output_arr = prediction.cpu().numpy()
+
+    formatted = (output_arr * 255 / np.max(output_arr)).astype('uint8')
+    formatted = 255 - formatted  # инвертирование значений пикселей
     img = Image.fromarray(formatted)
     
     return mask, img
