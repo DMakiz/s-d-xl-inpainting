@@ -38,8 +38,9 @@ def predict(dict, invert_mask=False, prompt="", negative_prompt="", guidance_sca
     if invert_mask:
         mask = ImageOps.invert(mask)
     
-    output = mask
-    return output, gr.update(visible=True)
+    output = pipe(prompt = prompt, negative_prompt=negative_prompt, image=init_image, mask_image=mask, guidance_scale=guidance_scale, num_inference_steps=int(steps), strength=strength)
+    
+    return output.images[0], output.masks[0], gr.update(visible=True)
 
 
 css = '''
@@ -102,15 +103,16 @@ with image_blocks as demo:
         
         with gr.Column():
             image_out = gr.Image(label="Output", elem_id="output-img", height=400)
+            mask_out = gr.Image(label="Mask", elem_id="mask-img", height=400)
             with gr.Group(elem_id="share-btn-container", visible=False) as share_btn_container:
                 community_icon = gr.HTML(community_icon_html)
                 loading_icon = gr.HTML(loading_icon_html)
                 share_button = gr.Button("Share to community", elem_id="share-btn", visible=True)
             
 
-    btn.click(fn=predict, inputs=[image, invert_mask_checkbox, prompt, negative_prompt, guidance_scale, steps, strength, scheduler], outputs=[image_out, share_btn_container], api_name='run')
-    invert_mask_checkbox.change(fn=predict, inputs=[image, invert_mask_checkbox, prompt, negative_prompt, guidance_scale, steps, strength, scheduler], outputs=[image_out, share_btn_container])
-    prompt.submit(fn=predict, inputs=[image, invert_mask_checkbox, prompt, negative_prompt, guidance_scale, steps, strength, scheduler], outputs=[image_out, share_btn_container])
+    btn.click(fn=predict, inputs=[image, invert_mask_checkbox, prompt, negative_prompt, guidance_scale, steps, strength, scheduler], outputs=[image_out, mask_out, share_btn_container], api_name='run')
+    invert_mask_checkbox.change(fn=predict, inputs=[image, invert_mask_checkbox, prompt, negative_prompt, guidance_scale, steps, strength, scheduler], outputs=[image_out, mask_out, share_btn_container])
+    prompt.submit(fn=predict, inputs=[image, invert_mask_checkbox, prompt, negative_prompt, guidance_scale, steps, strength, scheduler], outputs=[image_out, mask_out, share_btn_container])
     share_button.click(None, [], [], _js=share_js)
 
     gr.Examples(
