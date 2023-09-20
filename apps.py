@@ -66,4 +66,4 @@ mask_input = gr.inputs.Image(label="Mask Image")
 image_output = gr.outputs.Image(label="Mask Output")
 
 
-interface.launch(debug=True, max_threads=True, share=True, inbrowser=True)
+image_blocks.queue(max_size=25).launch(debug=True, max_threads=True, share=True, inbrowser=True)
