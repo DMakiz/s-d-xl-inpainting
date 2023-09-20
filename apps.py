@@ -128,9 +128,10 @@ with image_blocks as demo:
     gr.HTML(
         """
             <div class="footer">
-                <p style='text-align: center'>Будь в курсе обновлений <a href='https://vk.com/public221489796'>ПОДПИСАТЬСЯ</a></p>
+                <p>Model by <a href="https://huggingface.co/diffusers" style="text-decoration: underline;" target="_blank">Diffusers</a> - Gradio Demo by 🤗 Hugging Face
+                </p>
             </div>
         """
     )
 
-image_blocks.queue(max_size=25).launch(debug=True, max_threads=True, share=True, inbrowser=True)
+image_blocks.queue(max_size=25)(debug=True, max_threads=True, share=True, inbrowser=True)
