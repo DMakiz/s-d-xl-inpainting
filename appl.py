@@ -22,22 +22,32 @@ def predict(dict):
     invert_mask = False
     
     image = dict["image"]
-    mask = dict["mask"]
+    init_image = Image.open(image).convert("RGB").resize((1024, 1024))
     
-    if image is not None:
-        init_image = Image.open(image).convert("RGB").resize((1024, 1024))
+    if dict["output_type"] == "image":
         output = init_image
-    elif mask is not None:
-        init_mask = Image.open(mask).convert("RGB").resize((1024, 1024))
-        
-        if dict["invert_mask_checkbox"]:
-            init_mask = ImageOps.invert(init_mask)
-        
-        output = init_mask
     else:
-        output = None
+        # Generate mask
+        mask = generate_mask(init_image, invert_mask)
+        output = mask
         
     return output
+
+
+def generate_mask(image, invert_mask):
+    # generate the mask based on the image
+    # replace with your own logic
+    
+    if invert_mask:
+        # invert the mask
+        inverted_image = ImageOps.invert(image)
+        # convert to PIL Image
+        mask = inverted_image.convert("L")
+    else:
+        # convert to grayscale
+        mask = image.convert("L")
+        
+    return mask
 
 
 css = '''
@@ -82,8 +92,7 @@ with image_blocks as demo:
     gr.HTML(read_content("header.html"))
     with gr.Row():
         with gr.Column():
-            image = gr.Image(source='upload', tool='sketch', elem_id="image_upload", type="pil", label="Upload Image", height=400)
-            mask = gr.Image(source='upload', tool='sketch', elem_id="mask_upload", type="pil", label="Upload Mask", height=400)
+            image = gr.Image(source='upload', tool='sketch', elem_id="image_upload", type="pil", label="Upload", height=400)
             with gr.Row(elem_id="prompt-container", mobile_collapse=False, equal_height=True):
                 with gr.Row():
                     prompt = gr.Textbox(placeholder="Your prompt (what you want in place of what is erased)", show_label=False, elem_id="prompt")
@@ -91,17 +100,20 @@ with image_blocks as demo:
             
             with gr.Row(mobile_collapse=False, equal_height=True):
                 invert_mask_checkbox = gr.Checkbox(label="Invert Mask", initial_value=False, elem_id="invert_mask_checkbox")
+                output_type_radio = gr.Radio(["Image", "Mask"], label="Output Type", default="Image", elem_id="output_type_radio")
         
         with gr.Column():
-            output_img = gr.Image(label="Output", elem_id="output-img", height=400)
+            output_image = gr.Image(label="Output Image", elem_id="output-img", height=400)
+            output_mask = gr.Image(label="Output Mask", elem_id="output-mask", height=400)
             with gr.Group(elem_id="share-btn-container", visible=False) as share_btn_container:
                 community_icon = gr.HTML(community_icon_html)
                 loading_icon = gr.HTML(loading_icon_html)
                 share_button = gr.Button("Share to community", elem_id="share-btn", visible=True)
             
-    btn.click(fn=predict, inputs=[image, mask], outputs=[output_img, share_btn_container])
-    invert_mask_checkbox.change(fn=predict, inputs=[image, mask], outputs=[output_img, share_btn_container])
-    prompt.submit(fn=predict, inputs=[image, mask], outputs=[output_img, share_btn_container])
+    btn.click(fn=predict, inputs=[image, output_type_radio], outputs=[output_image, output_mask, share_btn_container], api_name='run')
+    invert_mask_checkbox.change(fn=predict, inputs=[image, output_type_radio], outputs=[output_image, output_mask, share_btn_container])
+    prompt.submit(fn=predict, inputs=[image, output_type_radio], outputs=[output_image, output_mask, share_btn_container])
+    output_type_radio.change(fn=predict, inputs=[image, output_type_radio], outputs=[output_image, output_mask, share_btn_container])
     share_button.click(None, [], [], _js=share_js)
 
     gr.Examples(
@@ -118,7 +130,7 @@ with image_blocks as demo:
             {"image": "./imgs/Multible-sharing-room_ccexpress-2-1024x1024.jpeg"},
         ],
         fn=predict,
-        inputs=[image, mask],
+        inputs=[image, output_type_radio],
         cache_examples=False,
     )
     gr.HTML(
