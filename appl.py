@@ -80,23 +80,7 @@ with image_blocks as demo:
     prompt.submit(fn=predict, inputs=[image, invert_mask_checkbox, prompt, negative_prompt, guidance_scale, steps, strength, scheduler], outputs=[image_out, share_btn_container])
     share_button.click(None, [], [], _js=share_js)
 
-    gr.Examples(
-        examples=[
-            ["./imgs/aaa (8).png"],
-            ["./imgs/download (1).jpeg"],
-            ["./imgs/0_oE0mLhfhtS_3Nfm2.png"],
-            ["./imgs/02_HubertyBlog-1-1024x1024.jpg"],
-            ["./imgs/jdn_jacques_de_nuce-1024x1024.jpg"],
-            ["./imgs/c4ca473acde04280d44128ad8ee09e8a.jpg"],
-            ["./imgs/canam-electric-motorcycles-scaled.jpg"],
-            ["./imgs/e8717ce80b394d1b9a610d04a1decd3a.jpeg"],
-            ["./imgs/Nature___Mountains_Big_Mountain_018453_31.jpg"],
-            ["./imgs/Multible-sharing-room_ccexpress-2-1024x1024.jpeg"],
-        ],
-        fn=predict,
-        inputs=[image, invert_mask_checkbox],
-        cache_examples=False,
-    )
+
     gr.HTML(
         """
         <div class="footer">
