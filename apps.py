@@ -4,7 +4,7 @@ from PIL import Image
 from diffusers import AutoPipelineForInpainting, UNet2DConditionModel
 import diffusers
 from share_btn import community_icon_html, loading_icon_html, share_js
-
+from PIL import Image, ImageOps
 device = "cuda" if torch.cuda.is_available() else "cpu"
 pipe = AutoPipelineForInpainting.from_pretrained("diffusers/stable-diffusion-xl-1.0-inpainting-0.1", torch_dtype=torch.float16, variant="fp16").to(device)
 
