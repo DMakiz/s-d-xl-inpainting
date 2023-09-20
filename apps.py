@@ -1,6 +1,6 @@
 import gradio as gr
 import torch
-
+from PIL import Image
 from diffusers import AutoPipelineForInpainting, UNet2DConditionModel
 import diffusers
 from share_btn import community_icon_html, loading_icon_html, share_js
