@@ -6,12 +6,15 @@ def read_content(file_path: str) -> str:
     """
     with open(file_path, 'r', encoding='utf-8') as f:
         content = f.read()
-
     return content
 
 
-def generate_mask(image):
-    return image
+def generate_mask(image, invert_mask):
+    if invert_mask:
+        image = ImageOps.invert(image)
+    # Дополнительная логика обработки изображения для генерации маски
+    mask = image  # Пример: маска равна исходному изображению
+    return mask
 
 
 css = '''
@@ -51,27 +54,14 @@ div#share-btn-container > div {flex-direction: row;background: black;align-items
 #image_upload{border-bottom-left-radius: 0px;border-bottom-right-radius: 0px}
 '''
 
-image_blocks = gr.Blocks(css=css, elem_id="total-container")
-with image_blocks as demo:
-    gr.HTML(read_content("header.html"))
-    with gr.Row():
-        with gr.Column():
-            image = gr.Image(source='upload', tool='sketch', elem_id="image_upload", type="pil", label="Upload", height=400)
-            with gr.Row():
-                invert_mask_checkbox = gr.Checkbox(label="Invert Mask", initial_value=False, elem_id="invert_mask_checkbox")
-                generate_button = gr.Button("Generate Mask", elem_id="generate_button")
-        with gr.Column():
-            mask_out = gr.Image(label="Mask Output", elem_id="mask_output", height=1024)
-    
-    generate_button.click(generate_mask, inputs=[image], outputs=[mask_out])
+image_blocks = gr.Interface(
+    fn=generate_mask,
+    inputs=[
+        gr.inputs.Image(source='upload', tool='sketch', type='pil', label="Upload", height=400),
+        gr.inputs.Checkbox(label="Invert Mask", default=False)
+    ],
+    outputs=gr.outputs.Image(label="Mask Output", height=400),
+    css=css,
+)
 
-    gr.HTML(
-        """
-        <div class="footer">
-            <p>Model by <a href="https://huggingface.co/diffusers" style="text-decoration: underline;" target="_blank">Diffusers</a> - Gradio Demo by 🤗 Hugging Face
-            </p>
-        </div>
-        """
-    )
-
-image_blocks.queue(max_size=25).launch(debug=True, max_threads=True, share=True, inbrowser=True)
+image_blocks.launch(debug=True, max_threads=True, share=True, inbrowser=True)
