@@ -8,6 +8,5 @@ numpy
 matplotlib
 uuid
 opencv-python
-diffusion_predict
 gradio==3.29.0
 
