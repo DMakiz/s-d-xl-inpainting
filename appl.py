@@ -17,22 +17,28 @@ def read_content(file_path: str) -> str:
 
     return content
 
+
 def predict(dict):
-    output_type = dict["output_type"]
-    invert_mask = dict["invert_mask_checkbox"]
+    invert_mask = False
     
     image = dict["image"]
-    init_image = Image.open(image).convert("RGB").resize((1024, 1024))
-
-    if output_type == "Image":
+    mask = dict["mask"]
+    
+    if image is not None:
+        init_image = Image.open(image).convert("RGB").resize((1024, 1024))
         output = init_image
+    elif mask is not None:
+        init_mask = Image.open(mask).convert("RGB").resize((1024, 1024))
+        
+        if dict["invert_mask_checkbox"]:
+            init_mask = ImageOps.invert(init_mask)
+        
+        output = init_mask
     else:
-        mask = init_image
-        if invert_mask:
-            mask = ImageOps.invert(mask)
-        output = mask
-
+        output = None
+        
     return output
+
 
 css = '''
 .gradio-container{max-width: 1100px !important}
@@ -76,27 +82,26 @@ with image_blocks as demo:
     gr.HTML(read_content("header.html"))
     with gr.Row():
         with gr.Column():
-            image = gr.Image(source='upload', tool='sketch', elem_id="image_upload", type="pil", label="Upload", height=400)
+            image = gr.Image(source='upload', tool='sketch', elem_id="image_upload", type="pil", label="Upload Image", height=400)
+            mask = gr.Image(source='upload', tool='sketch', elem_id="mask_upload", type="pil", label="Upload Mask", height=400)
             with gr.Row(elem_id="prompt-container", mobile_collapse=False, equal_height=True):
                 with gr.Row():
                     prompt = gr.Textbox(placeholder="Your prompt (what you want in place of what is erased)", show_label=False, elem_id="prompt")
                     btn = gr.Button("Inpaint!", elem_id="run_button")
             
             with gr.Row(mobile_collapse=False, equal_height=True):
-                output_type = gr.Radio(["Image", "Mask"], default="Image", label="Output Type", elem_id="output_type")
                 invert_mask_checkbox = gr.Checkbox(label="Invert Mask", initial_value=False, elem_id="invert_mask_checkbox")
         
         with gr.Column():
-            image_out = gr.Image(label="Output", elem_id="output-img", height=400)
+            output_img = gr.Image(label="Output", elem_id="output-img", height=400)
             with gr.Group(elem_id="share-btn-container", visible=False) as share_btn_container:
                 community_icon = gr.HTML(community_icon_html)
                 loading_icon = gr.HTML(loading_icon_html)
                 share_button = gr.Button("Share to community", elem_id="share-btn", visible=True)
             
-    btn.click(fn=predict, inputs=[image], outputs=[image_out, share_btn_container], api_name='run')
-    output_type.change(fn=predict, inputs=[image], outputs=[image_out, share_btn_container])
-    invert_mask_checkbox.change(fn=predict, inputs=[image], outputs=[image_out, share_btn_container])
-    prompt.submit(fn=predict, inputs=[image], outputs=[image_out, share_btn_container])
+    btn.click(fn=predict, inputs=[image, mask], outputs=[output_img, share_btn_container])
+    invert_mask_checkbox.change(fn=predict, inputs=[image, mask], outputs=[output_img, share_btn_container])
+    prompt.submit(fn=predict, inputs=[image, mask], outputs=[output_img, share_btn_container])
     share_button.click(None, [], [], _js=share_js)
 
     gr.Examples(
@@ -113,10 +118,9 @@ with image_blocks as demo:
             {"image": "./imgs/Multible-sharing-room_ccexpress-2-1024x1024.jpeg"},
         ],
         fn=predict,
-        inputs=[image],
+        inputs=[image, mask],
         cache_examples=False,
     )
-
     gr.HTML(
         """
         <div class="footer">
