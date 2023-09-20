@@ -15,7 +15,6 @@ def read_content(file_path: str) -> str:
         content = f.read()
 
     return content
-
 def predict(dict, prompt="", negative_prompt="", guidance_scale=7.5, steps=20, strength=1.0, scheduler="EulerDiscreteScheduler"):
     if negative_prompt == "":
         negative_prompt = None
@@ -41,8 +40,26 @@ def predict(dict, prompt="", negative_prompt="", guidance_scale=7.5, steps=20, s
     
     # Инверсия маски обратно перед возвратом
     mask = ImageOps.invert(mask)
+
+    # interpolate to original size
+    prediction = torch.nn.functional.interpolate(
+                        output.unsqueeze(1),
+                        size=init_image.size[::-1],
+                        mode="bicubic",
+                        align_corners=False,
+                 ).squeeze()
+    output = prediction.cpu().numpy()
     
-    return mask, gr.update(visible=True)
+    invert = True  # Инверсия значений пикселей
+    if invert:
+        formatted = (output * 255 / np.max(output)).astype('uint8')
+        formatted = 255 - formatted  # инвертирование значений пикселей
+    else:
+        formatted = (output * 255 / np.max(output)).astype('uint8')
+    
+    img = Image.fromarray(formatted)
+    
+    return mask, img
 
 
 css = '''
