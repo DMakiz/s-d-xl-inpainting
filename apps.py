@@ -1,14 +1,11 @@
 import gradio as gr
 import torch
-import numpy as np
-from PIL import Image
 
-from diffusers import AutoPipelineForInpainting
+from diffusers import AutoPipelineForInpainting, UNet2DConditionModel
 import diffusers
-from share_btn import community_icon_html, loading_icon_html, share_js
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
-pipe = AutoPipelineForInpainting.from_pretrained("diffusers/stable-diffusion-xl-1.0-inpainting-0.1", torch_dtype=torch.float32, variant="fp32").to(device)
+pipe = AutoPipelineForInpainting.from_pretrained("diffusers/stable-diffusion-xl-1.0-inpainting-0.1", torch_dtype=torch.float16, variant="fp16").to(device)
 
 def read_content(file_path: str) -> str:
     """read the content of target file
@@ -18,30 +15,13 @@ def read_content(file_path: str) -> str:
 
     return content
 
-def predict(image, mask, prompt="", negative_prompt="", guidance_scale=7.5, steps=20, strength=1.0, scheduler="EulerDiscreteScheduler"):
-    if negative_prompt == "":
-        negative_prompt = None
-    scheduler_class_name = scheduler.split("-")[0]
-
-    add_kwargs = {}
-    if len(scheduler.split("-")) > 1:
-        add_kwargs["use_karras"] = True
-    if len(scheduler.split("-")) > 2:
-        add_kwargs["algorithm_type"] = "sde-dpmsolver++"
-
-    scheduler = getattr(diffusers, scheduler_class_name)
-    pipe.scheduler = scheduler.from_pretrained("stabilityai/stable-diffusion-xl-base-1.0", subfolder="scheduler", **add_kwargs)
+def predict(image, mask):
+    init_image = image.convert("RGB").resize((1024, 1024))
+    mask_image = mask.convert("RGB").resize((1024, 1024))
     
-    mask = Image.fromarray(mask)
-    mask = mask.convert("L")
-    mask = mask.resize((1024, 1024))
-    mask_array = np.array(mask)
+    output = pipe(image=init_image, mask_image=mask_image)
     
-    output = pipe(prompt=prompt, negative_prompt=negative_prompt, image=image, mask_image=mask_array, guidance_scale=guidance_scale, num_inference_steps=int(steps), strength=strength)
-    
-    output_image = Image.fromarray(output.images[0])
-    
-    return output_image, gr.update(visible=True)
+    return output.images[0], gr.update(visible=True)
 
 
 css = '''
@@ -81,51 +61,17 @@ div#share-btn-container > div {flex-direction: row;background: black;align-items
 #image_upload{border-bottom-left-radius: 0px;border-bottom-right-radius: 0px}
 '''
 
-image_blocks = gr.Blocks(css=css, elem_id="total-container")
-with image_blocks as demo:
-    gr.HTML(read_content("header.html"))
-    with gr.Row():
-                with gr.Column():
-                    image = gr.Image(source='upload', tool='sketch', elem_id="image_upload", type="pil", label="Upload",height=400)
-                    mask = gr.Image(source='upload', tool='sketch', elem_id="mask_upload", type="pil", label="Mask",height=400)
-                    with gr.Row(elem_id="prompt-container", mobile_collapse=False, equal_height=True):
-                        with gr.Row():
-                            prompt = gr.Textbox(placeholder="Your prompt (what you want in place of what is erased)", show_label=False, elem_id="prompt")
-                            btn = gr.Button("Inpaint!", elem_id="run_button")
-                    
-                    with gr.Accordion(label="Advanced Settings", open=False):
-                        with gr.Row(mobile_collapse=False, equal_height=True):
-                            guidance_scale = gr.Number(value=7.5, minimum=1.0, maximum=20.0, step=0.1, label="guidance_scale")
-                            steps = gr.Number(value=20, minimum=10, maximum=30, step=1, label="steps")
-                            strength = gr.Number(value=0.99, minimum=0.01, maximum=0.99, step=0.01, label="strength")
-                            negative_prompt = gr.Textbox(label="negative_prompt", placeholder="Your negative prompt", info="what you don't want to see in the image")
-                        with gr.Row(mobile_collapse=False, equal_height=True):
-                            schedulers = ["DEISMultistepScheduler", "HeunDiscreteScheduler", "EulerDiscreteScheduler", "DPMSolverMultistepScheduler", "DPMSolverMultistepScheduler-Karras", "DPMSolverMultistepScheduler-Karras-SDE"]
-                            scheduler = gr.Dropdown(label="Schedulers", choices=schedulers, value="EulerDiscreteScheduler")
-    
-    with image_blocks.set_block(label="Output"):
-        output_image = gr.Image(label="Output Image", elem_id="output-img", height=400)
-    
-    btn.click(fn=predict, inputs=[image, mask, prompt, negative_prompt, guidance_scale, steps, strength, scheduler], outputs=[output_image], api_name='run')
-    prompt.submit(fn=predict, inputs=[image, mask, prompt, negative_prompt, guidance_scale, steps, strength, scheduler], outputs=[output_image])
-    
-    gr.Examples(
-        examples=[
-            ["./imgs/aaa (8).png", "./imgs/mask.png"],
-            ["./imgs/download (1).jpeg", "./imgs/mask.png"],
-            ["./imgs/0_oE0mLhfhtS_3Nfm2.png", "./imgs/mask.png"],
-            ["./imgs/02_HubertyBlog-1-1024x1024.jpg", "./imgs/mask.png"],
-            ["./imgs/jdn_jacques_de_nuce-1024x1024.jpg", "./imgs/mask.png"],
-            ["./imgs/c4ca473acde04280d44128ad8ee09e8a.jpg", "./imgs/mask.png"],
-            ["./imgs/canam-electric-motorcycles-scaled.jpg", "./imgs/mask.png"],
-            ["./imgs/e8717ce80b394d1b9a610d04a1decd3a.jpeg", "./imgs/mask.png"],
-            ["./imgs/Nature___Mountains_Big_Mountain_018453_31.jpg", "./imgs/mask.png"],
-            ["./imgs/Multible-sharing-room_ccexpress-2-1024x1024.jpeg", "./imgs/mask.png"],
-        ],
-        filter_fn=lambda img, msk: np.array(Image.open(msk)).shape == (1024, 1024),
-        fn=predict,
-        inputs=[image, mask],
-        cache_examples=False,
-    )
-    
-image_blocks.queue(max_size=25).launch(debug=True, max_threads=True, share=True, inbrowser=True)
+image_input = gr.inputs.Image(label="Input Image")
+mask_input = gr.inputs.Image(label="Mask Image")
+image_output = gr.outputs.Image(label="Mask Output")
+
+interface = gr.Interface(
+    fn=predict,
+    inputs=[image_input, mask_input],
+    outputs=image_output,
+    title="Inpainting Demo",
+    server_port=7857,
+    css=css
+)
+
+interface.launch(debug=True, max_threads=True, share=True, inbrowser=True)
