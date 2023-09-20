@@ -38,10 +38,17 @@ def predict(dict, invert_mask=False, prompt="", negative_prompt="", guidance_sca
     if invert_mask:
         mask = ImageOps.invert(mask)
     
-    output = pipe(prompt = prompt, negative_prompt=negative_prompt, image=init_image, mask_image=mask, guidance_scale=guidance_scale, num_inference_steps=int(steps), strength=strength)
+    output = pipe.prompt = prompt, negative_prompt=negative_prompt, image=init_image, mask_image=mask, guidance_scale=guidance_scale, num_inference_steps=int(steps), strength=strength)
     
-    return output.images[0], output.mask, gr.update(visible=True)
+    img = output.images[0]
+    img.show()
+    
+    mask = output.mask
+    mask.show()
+    
+    gr.update(visible=True)
 
+    return img, mask
 
 css = '''
 .gradio-container{max-width: 1100px !important}
