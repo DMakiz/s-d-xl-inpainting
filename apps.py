@@ -1,29 +1,11 @@
-import gradio as gr
 import torch
-
-from diffusers import AutoPipelineForInpainting, UNet2DConditionModel
-import diffusers
+from diffusers import AutoPipelineForInpainting
+import gradio as gr
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 pipe = AutoPipelineForInpainting.from_pretrained("diffusers/stable-diffusion-xl-1.0-inpainting-0.1", torch_dtype=torch.float16, variant="fp16").to(device)
 
-def read_content(file_path: str) -> str:
-    """read the content of target file
-    """
-    with open(file_path, 'r', encoding='utf-8') as f:
-        content = f.read()
-
-    return content
-
-def predict(image, mask):
-    init_image = image.convert("RGB").resize((1024, 1024))
-    mask_image = mask.convert("RGB").resize((1024, 1024))
-    
-    output = pipe(image=init_image, mask_image=mask_image)
-    
-    return output.images[0], gr.update(visible=True)
-
-
+# Добавьте свои стили здесь
 css = '''
 .gradio-container{max-width: 1100px !important}
 #image_upload{min-height:400px}
@@ -61,9 +43,22 @@ div#share-btn-container > div {flex-direction: row;background: black;align-items
 #image_upload{border-bottom-left-radius: 0px;border-bottom-right-radius: 0px}
 '''
 
-image_input = gr.inputs.Image(label="Input Image")
-mask_input = gr.inputs.Image(label="Mask Image")
-image_output = gr.outputs.Image(label="Mask Output")
+def predict(mask):
+    mask_image = mask.convert("L").resize((1024, 1024))
+    
+    output = pipe(mask_image=mask_image)
+    
+    return output["output_mask"].cpu().numpy()
 
+mask_input = gr.inputs.Image(label="Mask", type="sketchpad", invert_colors=True, height=800, width=800, drawing_mode="freedraw", interpretation="mask")
+mask_output = gr.outputs.Image(label="Mask Output", type="numpy", format="png")
 
-image_blocks.queue(max_size=25).launch(debug=True, max_threads=True, share=True, inbrowser=True)
+interface = gr.Interface(
+    fn=predict,
+    inputs=mask_input,
+    outputs=mask_output,
+    title="Inpainting Demo",
+    css=css
+)
+
+interface.launch(debug=True, max_threads=True, share=True, inbrowser=True)
