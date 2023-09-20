@@ -43,12 +43,12 @@ def predict(dict, invert_mask=False, prompt="", negative_prompt="", guidance_sca
     img = output.images[0]
     img.show()
     
-    mask = output.mask
-    mask.show()
+    mask_img = output.mask_image
+    mask_img.show()
     
     gr.update(visible=True)
 
-    return img, mask
+    return img, mask_img
 
 css = '''
 .gradio-container{max-width: 1100px !important}
