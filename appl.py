@@ -2,9 +2,6 @@ import gradio as gr
 import torch
 from PIL import Image
 from diffusers import AutoPipelineForInpainting, UNet2DConditionModel
-import diffusers
-from share_btn import community_icon_html, loading_icon_html, share_js
-from PIL import Image, ImageOps
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 pipe = AutoPipelineForInpainting.from_pretrained("diffusers/stable-diffusion-xl-1.0-inpainting-0.1", torch_dtype=torch.float16, variant="fp16").to(device)
@@ -17,41 +14,23 @@ def read_content(file_path: str) -> str:
 
     return content
 
-
 def predict(dict):
-    invert_mask = False
-    
+    invert_mask = dict["invert_mask"]
     image = dict["image"]
     init_image = Image.open(image).convert("RGB").resize((1024, 1024))
     
     if dict["output_type"] == "image":
         output = init_image
     else:
-        # Generate mask
         mask = generate_mask(init_image, invert_mask)
         output = mask
-        
-    return output
-
-
-def generate_mask(image, invert_mask):
-    # generate the mask based on the image
-    # replace with your own logic
     
-    if invert_mask:
-        # invert the mask
-        inverted_image = ImageOps.invert(image)
-        # convert to PIL Image
-        mask = inverted_image.convert("L")
-    else:
-        # convert to grayscale
-        mask = image.convert("L")
-        
-    return mask
-
+    output = pipe(prompt=dict["prompt"], negative_prompt=dict["negative_prompt"], image=init_image, mask_image=output, guidance_scale=dict["guidance_scale"], num_inference_steps=int(dict["steps"]), strength=dict["strength"])
+    
+    return output.images[0]
 
 css = '''
-.gradio-container{max-width: 1100px !important}
+..gradio-container{max-width: 1100px !important}
 #image_upload{min-height:400px}
 #image_upload [data-testid="image"], #image_upload [data-testid="image"] > div{min-height: 400px}
 #mask_radio .gr-form{background:transparent; border: none}
@@ -97,25 +76,39 @@ with image_blocks as demo:
                 with gr.Row():
                     prompt = gr.Textbox(placeholder="Your prompt (what you want in place of what is erased)", show_label=False, elem_id="prompt")
                     btn = gr.Button("Inpaint!", elem_id="run_button")
-            
             with gr.Row(mobile_collapse=False, equal_height=True):
                 invert_mask_checkbox = gr.Checkbox(label="Invert Mask", initial_value=False, elem_id="invert_mask_checkbox")
-                output_type_radio = gr.Radio(["Image", "Mask"], label="Output Type", default="Image", elem_id="output_type_radio")
+                output_type_radio = gr.Radio(["Image", "Mask"], label="Output Type", initial_value="Image",
+                                            elem_id="output_type_radio")
+            
+            with gr.Row():
+                with gr.Column():
+                    guidance_scale_slider = gr.Slider(label="Guidance Scale", min_value=0, max_value=1, step_size=0.1, 
+                                                     initial_value=0.5, elem_id='guidance_scale_slider')
+                    num_steps_slider = gr.Slider(label="Number of Inference Steps", min_value=1, max_value=10, step_size=1, 
+                                                 initial_value=5, elem_id='num_steps_slider')
+                with gr.Column():
+                    strength_slider = gr.Slider(label="Strength", min_value=0.0, max_value=1.0, step_size=0.1, 
+                                                initial_value=0.3, elem_id='strength_slider')
         
         with gr.Column():
-            output_image = gr.Image(label="Output Image", elem_id="output-img", height=400)
-            output_mask = gr.Image(label="Output Mask", elem_id="output-mask", height=400)
-            with gr.Group(elem_id="share-btn-container", visible=False) as share_btn_container:
-                community_icon = gr.HTML(community_icon_html)
-                loading_icon = gr.HTML(loading_icon_html)
-                share_button = gr.Button("Share to community", elem_id="share-btn", visible=True)
-            
-    btn.click(fn=predict, inputs=[image, output_type_radio], outputs=[output_image, output_mask, share_btn_container], api_name='run')
-    invert_mask_checkbox.change(fn=predict, inputs=[image, output_type_radio], outputs=[output_image, output_mask, share_btn_container])
-    prompt.submit(fn=predict, inputs=[image, output_type_radio], outputs=[output_image, output_mask, share_btn_container])
-    output_type_radio.change(fn=predict, inputs=[image, output_type_radio], outputs=[output_image, output_mask, share_btn_container])
-    share_button.click(None, [], [], _js=share_js)
-
+            image_out = gr.Image(label="Output", elem_id="output-img", height=400)
+    
+    btn.click(fn=predict, inputs=[image, invert_mask_checkbox, prompt, output_type_radio, guidance_scale_slider, num_steps_slider, strength_slider], 
+              outputs=[image_out])
+    invert_mask_checkbox.change(fn=predict, inputs=[image, invert_mask_checkbox, prompt, output_type_radio, guidance_scale_slider, num_steps_slider, strength_slider],
+                                outputs=[image_out])
+    prompt.submit(fn=predict, inputs=[image, invert_mask_checkbox, prompt, output_type_radio, guidance_scale_slider, num_steps_slider, strength_slider],
+                  outputs=[image_out])
+    output_type_radio.click(fn=predict, inputs=[image, invert_mask_checkbox, prompt, output_type_radio, guidance_scale_slider, num_steps_slider, strength_slider],
+                            outputs=[image_out])
+    guidance_scale_slider.change(fn=predict, inputs=[image, invert_mask_checkbox, prompt, output_type_radio, guidance_scale_slider, num_steps_slider, strength_slider],
+                                 outputs=[image_out])
+    num_steps_slider.change(fn=predict, inputs=[image, invert_mask_checkbox, prompt, output_type_radio, guidance_scale_slider, num_steps_slider, strength_slider],
+                            outputs=[image_out])
+    strength_slider.change(fn=predict, inputs=[image, invert_mask_checkbox, prompt, output_type_radio, guidance_scale_slider, num_steps_slider, strength_slider],
+                           outputs=[image_out])
+    
     gr.Examples(
         examples=[
             {"image": "./imgs/aaa (8).png"},
@@ -130,7 +123,7 @@ with image_blocks as demo:
             {"image": "./imgs/Multible-sharing-room_ccexpress-2-1024x1024.jpeg"},
         ],
         fn=predict,
-        inputs=[image, output_type_radio],
+        inputs=[image, invert_mask_checkbox, prompt, output_type_radio, guidance_scale_slider, num_steps_slider, strength_slider],
         cache_examples=False,
     )
     gr.HTML(
