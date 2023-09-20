@@ -19,6 +19,7 @@ def read_content(file_path: str) -> str:
 def predict(dict, prompt="", negative_prompt="", guidance_scale=7.5, steps=20, strength=1.0, scheduler="EulerDiscreteScheduler"):
     if negative_prompt == "":
         negative_prompt = None
+    
     scheduler_class_name = scheduler.split("-")[0]
 
     add_kwargs = {}
@@ -33,7 +34,13 @@ def predict(dict, prompt="", negative_prompt="", guidance_scale=7.5, steps=20, s
     init_image = dict["image"].convert("RGB").resize((1024, 1024))
     mask = dict["mask"].convert("RGB").resize((1024, 1024))
     
+    # Инверсия маски
+    mask = ImageOps.invert(mask)
+    
     output = pipe(prompt = prompt, negative_prompt=negative_prompt, image=init_image, mask_image=mask, guidance_scale=guidance_scale, num_inference_steps=int(steps), strength=strength)
+    
+    # Инверсия маски обратно перед возвратом
+    mask = ImageOps.invert(mask)
     
     return mask, gr.update(visible=True)
 
