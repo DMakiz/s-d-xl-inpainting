@@ -35,7 +35,7 @@ def predict(dict, prompt="", negative_prompt="", guidance_scale=7.5, steps=20, s
     
     output = mask
     
-    return output.images[0], gr.update(visible=True)
+    return output, gr.update(visible=True)
 
 
 css = '''
