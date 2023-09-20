@@ -2,9 +2,9 @@ import gradio as gr
 import torch
 from PIL import ImageOps
 from diffusers import AutoPipelineForInpainting, UNet2DConditionModel
-import diffusers
-from share_btn import community_icon_html, loading_icon_html, share_js
-
+import numpy as np
+from PIL import Image
+from diffusion_predict import pipe, diffusers
 device = "cuda" if torch.cuda.is_available() else "cpu"
 pipe = AutoPipelineForInpainting.from_pretrained("diffusers/stable-diffusion-xl-1.0-inpainting-0.1", torch_dtype=torch.float16, variant="fp16").to(device)
 
@@ -30,30 +30,34 @@ def predict(dict, prompt="", negative_prompt="", guidance_scale=7.5, steps=20, s
 
     scheduler = getattr(diffusers, scheduler_class_name)
     pipe.scheduler = scheduler.from_pretrained("stabilityai/stable-diffusion-xl-base-1.0", subfolder="scheduler", **add_kwargs)
-    
-    init_image = dict["image"].convert("RGB").resize((1024, 1024))
-    mask = dict["mask"].convert("RGB").resize((1024, 1024))
-    
+
+    max_size = (1024, 1024)  # Максимальные размеры изображения
+
+    init_image = dict["image"].convert("RGB").resize(max_size, resample=Image.Resampling.BICUBIC)
+    mask = dict["mask"].convert("RGB").resize(max_size, resample=Image.Resampling.BICUBIC)
+
     # Инверсия маски
     mask = ImageOps.invert(mask)
-    
-    output = pipe(prompt = prompt, negative_prompt=negative_prompt, image=init_image, mask_image=mask, guidance_scale=guidance_scale, num_inference_steps=int(steps), strength=strength)
-    
+
+    output = pipe(prompt=prompt, negative_prompt=negative_prompt, image=init_image, mask_image=mask,
+                  guidance_scale=guidance_scale, num_inference_steps=int(steps), strength=strength)
+
     # Инверсия маски обратно перед возвратом
     mask = ImageOps.invert(mask)
-    
+
     prediction = torch.nn.functional.interpolate(
-                        output.images[0].unsqueeze(1),
-                        size=init_image.size[::-1],
-                        mode="bicubic",
-                        align_corners=False,
-                 ).squeeze()
+        output[0]["image"].unsqueeze(0),
+        size=init_image.size[::-1],
+        mode="bicubic",
+        align_corners=False,
+    ).squeeze()
+    
     output_arr = prediction.cpu().numpy()
 
     formatted = (output_arr * 255 / np.max(output_arr)).astype('uint8')
     formatted = 255 - formatted  # инвертирование значений пикселей
     img = Image.fromarray(formatted)
-    
+
     return mask, img
 
 
