@@ -123,7 +123,6 @@ with image_blocks as demo:
                 ],
                 fn=predict,
                 inputs=[image],
-                inputs=[image],
                 cache_examples=False,
     )
     gr.HTML(
