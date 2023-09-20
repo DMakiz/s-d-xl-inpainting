@@ -1,10 +1,10 @@
 import gradio as gr
 import torch
-from PIL import ImageOps
+
 from diffusers import AutoPipelineForInpainting, UNet2DConditionModel
-import numpy as np
-from PIL import Image
-from diffusion_predict import pipe, diffusers
+import diffusers
+from share_btn import community_icon_html, loading_icon_html, share_js
+
 device = "cuda" if torch.cuda.is_available() else "cpu"
 pipe = AutoPipelineForInpainting.from_pretrained("diffusers/stable-diffusion-xl-1.0-inpainting-0.1", torch_dtype=torch.float16, variant="fp16").to(device)
 
