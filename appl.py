@@ -21,16 +21,6 @@ def read_content(file_path: str) -> str:
 def predict(dict, invert_mask=False, prompt="", negative_prompt="", guidance_scale=7.5, steps=20, strength=1.0, scheduler="EulerDiscreteScheduler"):
     if negative_prompt == "":
         negative_prompt = None
-    scheduler_class_name = scheduler.split("-")[0]
-
-    add_kwargs = {}
-    if len(scheduler.split("-")) > 1:
-        add_kwargs["use_karras"] = True
-    if len(scheduler.split("-")) > 2:
-        add_kwargs["algorithm_type"] = "sde-dpmsolver++"
-
-    scheduler_class = getattr(diffusers, scheduler_class_name)
-    pipe.scheduler = scheduler_class.from_pretrained("stabilityai/stable-diffusion-xl-base-1.0", subfolder="scheduler", **add_kwargs)
 
     init_image = dict["image"].convert("RGB").resize((1024, 1024))
     mask = dict["mask"].convert("RGB").resize((1024, 1024))
@@ -41,6 +31,19 @@ def predict(dict, invert_mask=False, prompt="", negative_prompt="", guidance_sca
         output = mask
         return output, gr.update(visible=True)
     else:
+        scheduler_class_name = scheduler.split("-")[0]
+
+        add_kwargs = {}
+        if len(scheduler.split("-")) > 1:
+            add_kwargs["use_karras"] = True
+        if len(scheduler.split("-")) > 2:
+            add_kwargs["algorithm_type"] = "sde-dpmsolver++"
+
+        scheduler_class = getattr(diffusers, scheduler_class_name)
+        scheduler_instance = scheduler_class.from_pretrained("stabilityai/stable-diffusion-xl-base-1.0", subfolder="scheduler", **add_kwargs)
+
+        pipe.scheduler = scheduler_instance
+
         output = pipe(prompt=prompt, negative_prompt=negative_prompt, image=init_image, mask_image=mask, guidance_scale=guidance_scale, num_inference_steps=int(steps), strength=strength).images[0]
 
         return output, gr.update(visible=True)
