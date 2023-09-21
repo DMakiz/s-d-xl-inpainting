@@ -40,7 +40,7 @@ def predict(dict, invert_mask=False, prompt="", negative_prompt="", guidance_sca
         mask = ImageOps.invert(mask)
         output = mask
         return output, gr.update(visible=True)
-        return mask, gr.update(visible=True)
+        
     else:
         output = pipe(prompt=prompt, negative_prompt=negative_prompt, image=init_image, mask_image=mask, guidance_scale=guidance_scale, num_inference_steps=int(steps), strength=strength).images[0]
 
