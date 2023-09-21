@@ -29,8 +29,8 @@ def predict(dict, invert_mask=False, prompt="", negative_prompt="", guidance_sca
     if len(scheduler.split("-")) > 2:
         add_kwargs["algorithm_type"] = "sde-dpmsolver++"
 
-    scheduler = getattr(diffusers, scheduler_class_name)
-    pipe.scheduler = scheduler.from_pretrained("stabilityai/stable-diffusion-xl-base-1.0", subfolder="scheduler", **add_kwargs)
+    scheduler_class = getattr(diffusers, scheduler_class_name)
+    pipe.scheduler = scheduler_class.from_pretrained("stabilityai/stable-diffusion-xl-base-1.0", subfolder="scheduler", **add_kwargs)
 
     init_image = dict["image"].convert("RGB").resize((1024, 1024))
     mask = dict["mask"].convert("RGB").resize((1024, 1024))
@@ -40,11 +40,10 @@ def predict(dict, invert_mask=False, prompt="", negative_prompt="", guidance_sca
         mask = ImageOps.invert(mask)
         output = mask
         return output, gr.update(visible=True)
-        
     else:
-       output = pipe(prompt = prompt, negative_prompt=negative_prompt, image=init_image, mask_image=mask, guidance_scale=guidance_scale, num_inference_steps=int(steps), strength=strength)
-    
-       return output.images[0], gr.update(visible=True)
+        output = pipe(prompt=prompt, negative_prompt=negative_prompt, image=init_image, mask_image=mask, guidance_scale=guidance_scale, num_inference_steps=int(steps), strength=strength).images[0]
+
+        return output, gr.update(visible=True)
 
 
 css = '''
