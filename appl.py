@@ -42,9 +42,9 @@ def predict(dict, invert_mask=False, prompt="", negative_prompt="", guidance_sca
         return output, gr.update(visible=True)
         
     else:
-        output = pipe(prompt=prompt, negative_prompt=negative_prompt, image=init_image, mask_image=mask, guidance_scale=guidance_scale, num_inference_steps=int(steps), strength=strength).images[0]
-
-        return output.images[0], gr.update(visible=True)
+       output = pipe(prompt = prompt, negative_prompt=negative_prompt, image=init_image, mask_image=mask, guidance_scale=guidance_scale, num_inference_steps=int(steps), strength=strength)
+    
+       return output.images[0], gr.update(visible=True)
 
 
 css = '''
