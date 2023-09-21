@@ -2,6 +2,9 @@ import gradio as gr
 import torch
 from PIL import Image
 from diffusers import AutoPipelineForInpainting, UNet2DConditionModel
+import diffusers
+from share_btn import community_icon_html, loading_icon_html, share_js
+from PIL import Image, ImageOps
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 pipe = AutoPipelineForInpainting.from_pretrained("diffusers/stable-diffusion-xl-1.0-inpainting-0.1", torch_dtype=torch.float16, variant="fp16").to(device)
@@ -14,23 +17,33 @@ def read_content(file_path: str) -> str:
 
     return content
 
-def predict(dict):
-    invert_mask = dict["invert_mask"]
-    image = dict["image"]
-    init_image = Image.open(image).convert("RGB").resize((1024, 1024))
+
+def predict(dict, invert_mask=False, prompt="", negative_prompt="", guidance_scale=7.5, steps=20, strength=1.0, scheduler="EulerDiscreteScheduler"):
+    if negative_prompt == "":
+        negative_prompt = None
+    scheduler_class_name = scheduler.split("-")[0]
+
+    add_kwargs = {}
+    if len(scheduler.split("-")) > 1:
+        add_kwargs["use_karras"] = True
+    if len(scheduler.split("-")) > 2:
+        add_kwargs["algorithm_type"] = "sde-dpmsolver++"
+
+    scheduler = getattr(diffusers, scheduler_class_name)
+    pipe.scheduler = scheduler.from_pretrained("stabilityai/stable-diffusion-xl-base-1.0", subfolder="scheduler", **add_kwargs)
+
+    init_image = dict["image"].convert("RGB").resize((1024, 1024))
+    mask = dict["mask"].convert("RGB").resize((1024, 1024))
     
-    if dict["output_type"] == "image":
-        output = init_image
-    else:
-        mask = generate_mask(init_image, invert_mask)
-        output = mask
+    if invert_mask:
+        mask = ImageOps.invert(mask)
     
-    output = pipe(prompt=dict["prompt"], negative_prompt=dict["negative_prompt"], image=init_image, mask_image=output, guidance_scale=dict["guidance_scale"], num_inference_steps=int(dict["steps"]), strength=dict["strength"])
-    
-    return output.images[0]
+    output = mask
+    return output, gr.update(visible=True)
+
 
 css = '''
-..gradio-container{max-width: 1100px !important}
+.gradio-container{max-width: 1100px !important}
 #image_upload{min-height:400px}
 #image_upload [data-testid="image"], #image_upload [data-testid="image"] > div{min-height: 400px}
 #mask_radio .gr-form{background:transparent; border: none}
@@ -76,54 +89,45 @@ with image_blocks as demo:
                 with gr.Row():
                     prompt = gr.Textbox(placeholder="Your prompt (what you want in place of what is erased)", show_label=False, elem_id="prompt")
                     btn = gr.Button("Inpaint!", elem_id="run_button")
+            
             with gr.Row(mobile_collapse=False, equal_height=True):
                 invert_mask_checkbox = gr.Checkbox(label="Invert Mask", initial_value=False, elem_id="invert_mask_checkbox")
-                output_type_radio = gr.Radio(["Image", "Mask"], label="Output Type", initial_value="Image",
-                                            elem_id="output_type_radio")
-            
-            with gr.Row():
-                with gr.Column():
-                    guidance_scale_slider = gr.Slider(label="Guidance Scale", min_value=0, max_value=1, step_size=0.1, 
-                                                     initial_value=0.5, elem_id='guidance_scale_slider')
-                    num_steps_slider = gr.Slider(label="Number of Inference Steps", min_value=1, max_value=10, step_size=1, 
-                                                 initial_value=5, elem_id='num_steps_slider')
-                with gr.Column():
-                    strength_slider = gr.Slider(label="Strength", min_value=0.0, max_value=1.0, step_size=0.1, 
-                                                initial_value=0.3, elem_id='strength_slider')
+                guidance_scale = gr.Number(value=7.5, minimum=1.0, maximum=20.0, step=0.1, label="guidance_scale")
+                steps = gr.Number(value=20, minimum=10, maximum=30, step=1, label="steps")
+                strength = gr.Number(value=0.99, minimum=0.01, maximum=0.99, step=0.01, label="strength")
+                negative_prompt = gr.Textbox(label="negative_prompt", placeholder="Your negative prompt", info="what you don't want to see in the image")
+            with gr.Row(mobile_collapse=False, equal_height=True):
+                schedulers = ["DEISMultistepScheduler", "HeunDiscreteScheduler", "EulerDiscreteScheduler", "DPMSolverMultistepScheduler", "DPMSolverMultistepScheduler-Karras", "DPMSolverMultistepScheduler-Karras-SDE"]
+                scheduler = gr.Dropdown(label="Schedulers", choices=schedulers, value="EulerDiscreteScheduler")
         
         with gr.Column():
             image_out = gr.Image(label="Output", elem_id="output-img", height=400)
-    
-    btn.click(fn=predict, inputs=[image, invert_mask_checkbox, prompt, output_type_radio, guidance_scale_slider, num_steps_slider, strength_slider], 
-              outputs=[image_out])
-    invert_mask_checkbox.change(fn=predict, inputs=[image, invert_mask_checkbox, prompt, output_type_radio, guidance_scale_slider, num_steps_slider, strength_slider],
-                                outputs=[image_out])
-    prompt.submit(fn=predict, inputs=[image, invert_mask_checkbox, prompt, output_type_radio, guidance_scale_slider, num_steps_slider, strength_slider],
-                  outputs=[image_out])
-    output_type_radio.click(fn=predict, inputs=[image, invert_mask_checkbox, prompt, output_type_radio, guidance_scale_slider, num_steps_slider, strength_slider],
-                            outputs=[image_out])
-    guidance_scale_slider.change(fn=predict, inputs=[image, invert_mask_checkbox, prompt, output_type_radio, guidance_scale_slider, num_steps_slider, strength_slider],
-                                 outputs=[image_out])
-    num_steps_slider.change(fn=predict, inputs=[image, invert_mask_checkbox, prompt, output_type_radio, guidance_scale_slider, num_steps_slider, strength_slider],
-                            outputs=[image_out])
-    strength_slider.change(fn=predict, inputs=[image, invert_mask_checkbox, prompt, output_type_radio, guidance_scale_slider, num_steps_slider, strength_slider],
-                           outputs=[image_out])
-    
+            with gr.Group(elem_id="share-btn-container", visible=False) as share_btn_container:
+                community_icon = gr.HTML(community_icon_html)
+                loading_icon = gr.HTML(loading_icon_html)
+                share_button = gr.Button("Share to community", elem_id="share-btn", visible=True)
+            
+
+    btn.click(fn=predict, inputs=[image, invert_mask_checkbox, prompt, negative_prompt, guidance_scale, steps, strength, scheduler], outputs=[image_out, share_btn_container], api_name='run')
+    invert_mask_checkbox.change(fn=predict, inputs=[image, invert_mask_checkbox, prompt, negative_prompt, guidance_scale, steps, strength, scheduler], outputs=[image_out, share_btn_container])
+    prompt.submit(fn=predict, inputs=[image, invert_mask_checkbox, prompt, negative_prompt, guidance_scale, steps, strength, scheduler], outputs=[image_out, share_btn_container])
+    share_button.click(None, [], [], _js=share_js)
+
     gr.Examples(
         examples=[
-            {"image": "./imgs/aaa (8).png"},
-            {"image": "./imgs/download (1).jpeg"},
-            {"image": "./imgs/0_oE0mLhfhtS_3Nfm2.png"},
-            {"image": "./imgs/02_HubertyBlog-1-1024x1024.jpg"},
-            {"image": "./imgs/jdn_jacques_de_nuce-1024x1024.jpg"},
-            {"image": "./imgs/c4ca473acde04280d44128ad8ee09e8a.jpg"},
-            {"image": "./imgs/canam-electric-motorcycles-scaled.jpg"},
-            {"image": "./imgs/e8717ce80b394d1b9a610d04a1decd3a.jpeg"},
-            {"image": "./imgs/Nature___Mountains_Big_Mountain_018453_31.jpg"},
-            {"image": "./imgs/Multible-sharing-room_ccexpress-2-1024x1024.jpeg"},
+            ["./imgs/aaa (8).png"],
+            ["./imgs/download (1).jpeg"],
+            ["./imgs/0_oE0mLhfhtS_3Nfm2.png"],
+            ["./imgs/02_HubertyBlog-1-1024x1024.jpg"],
+            ["./imgs/jdn_jacques_de_nuce-1024x1024.jpg"],
+            ["./imgs/c4ca473acde04280d44128ad8ee09e8a.jpg"],
+            ["./imgs/canam-electric-motorcycles-scaled.jpg"],
+            ["./imgs/e8717ce80b394d1b9a610d04a1decd3a.jpeg"],
+            ["./imgs/Nature___Mountains_Big_Mountain_018453_31.jpg"],
+            ["./imgs/Multible-sharing-room_ccexpress-2-1024x1024.jpeg"],
         ],
         fn=predict,
-        inputs=[image, invert_mask_checkbox, prompt, output_type_radio, guidance_scale_slider, num_steps_slider, strength_slider],
+        inputs=[image, invert_mask_checkbox],
         cache_examples=False,
     )
     gr.HTML(
