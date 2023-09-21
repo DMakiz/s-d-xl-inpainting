@@ -36,10 +36,11 @@ def predict(dict, invert_mask=False, prompt="", negative_prompt="", guidance_sca
     mask = dict["mask"].convert("RGB").resize((1024, 1024))
     
     if invert_mask:
-        mask = ImageOps.invert(mask)
+        output = mask
+    else:
+        output = pipe(prompt=prompt, negative_prompt=negative_prompt, image=init_image, mask_image=mask, guidance_scale=guidance_scale, num_inference_steps=int(steps), strength=strength).images[0]
     
-    output = pipe(prompt=prompt, negative_prompt=negative_prompt, image=init_image, mask_image=mask, guidance_scale=guidance_scale, num_inference_steps=int(steps), strength=strength)
-    return output.images[0], gr.update(visible=True)
+    return output, gr.update(visible=True)
 
 
 css = '''
