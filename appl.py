@@ -26,11 +26,22 @@ def predict(dict, invert_mask=False, prompt="", negative_prompt="", guidance_sca
     mask = dict["mask"].convert("RGB").resize((1024, 1024))
     
     if invert_mask:
-        # Инвертирование маски
-        mask = ImageOps.invert(mask)
+        scheduler_class_name = scheduler.split("-")[0]
+
+        add_kwargs = {}
+        if len(scheduler.split("-")) > 1:
+            add_kwargs["use_karras"] = True
+        if len(scheduler.split("-")) > 2:
+            add_kwargs["algorithm_type"] = "sde-dpmsolver++"
+
+        scheduler_class = getattr(diffusers, scheduler_class_name)
+        scheduler_instance = scheduler_class.from_pretrained("stabilityai/stable-diffusion-xl-base-1.0", subfolder="scheduler", **add_kwargs)
+
+        pipe.scheduler = scheduler_instance
+        
+
         output = mask
         return output, gr.update(visible=True)
-    
     else:
         scheduler_class_name = scheduler.split("-")[0]
 
